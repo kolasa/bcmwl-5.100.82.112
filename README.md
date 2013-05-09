@@ -3,7 +3,7 @@ bcmwl-5.100.82.112
 
 deb repository: bcmwl-kernel-source_5.100.82.112+bdcom-0ubuntu3_i386.deb
 
-My driver path for the Linux kernel >= 3.9.x ( and the next 3.10-rcx )
+My driver patch for the Linux kernel >= 3.9.x ( and the next 3.10-rcx )
 
 bcmwl-5.100.82.112 driver is the last good for BCM4313 card in my laptop (HP ProBook 6560b),
 
