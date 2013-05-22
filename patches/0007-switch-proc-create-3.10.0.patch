@@ -1,0 +1,154 @@
+diff --git a/src/include/linuxver.h b/src/include/linuxver.h
+index af6cf8d..02c4906 100644
+--- a/src/include/linuxver.h
++++ b/src/include/linuxver.h
+@@ -137,7 +137,7 @@ typedef irqreturn_t(*FN_ISR) (int irq, void *dev_id, struct pt_regs *ptregs);
+ #define __devexit
+ #endif
+ #ifndef __devinit
+-#define __devinit	__init
++#define __devinit
+ #endif
+ #ifndef __devinitdata
+ #define __devinitdata
+diff --git a/src/wl/sys/wl_linux.c b/src/wl/sys/wl_linux.c
+index f5b5156..0f1fe5b 100644
+--- a/src/wl/sys/wl_linux.c
++++ b/src/wl/sys/wl_linux.c
+@@ -2973,22 +2973,37 @@ void
+ wl_tkip_printstats(wl_info_t *wl, bool group_key)
+ {
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 14)
++# if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
+ 	char debug_buf[512];
++# else
++	struct seq_file *m = NULL;
++# endif
+ 	int idx;
+ 	if (wl->tkipmodops) {
+ 		if (group_key) {
+ 			for (idx = 0; idx < NUM_GROUP_KEYS; idx++) {
+ 				if (wl->tkip_bcast_data[idx])
+-					wl->tkipmodops->print_stats(debug_buf,
+-						wl->tkip_bcast_data[idx]);
++# if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
++					wl->tkipmodops->print_stats(debug_buf, wl->tkip_bcast_data[idx]);
++# else
++					wl->tkipmodops->print_stats(m, wl->tkip_bcast_data[idx]);
++# endif
+ 			}
+ 		} else if (!group_key && wl->tkip_ucast_data)
++# if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
+ 			wl->tkipmodops->print_stats(debug_buf, wl->tkip_ucast_data);
++# else
++			wl->tkipmodops->print_stats(m, wl->tkip_ucast_data);
++# endif
+ 		else
+ 			return;
++# if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
+ 		printk("%s: TKIP stats from module: %s\n", debug_buf, group_key?"Bcast":"Ucast");
++# else
++		seq_printf(m, "TKIP stats from module: %s\n", group_key?"Bcast":"Ucast");
++# endif
+ 	}
+-#endif 
++#endif
+ }
+ 
+ #if defined(WL_CONFIG_RFKILL)   
+@@ -3134,13 +3149,15 @@ wl_linux_watchdog(void *ctx)
+ static int
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
+ wl_proc_read(char *buffer, char **start, off_t offset, int length, int *eof, void *data)
+-#else
+-wl_proc_read(struct seq_file *m, void *data)
+-#endif
+ {
+ 	wl_info_t * wl = (wl_info_t *)data;
+-	int bcmerror, to_user;
+ 	int len;
++#else
++wl_proc_read(struct seq_file *m, void *data)
++{
++	wl_info_t * wl = (wl_info_t *)m->private;
++#endif
++	int to_user;
+ 
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
+ 	if (offset > 0) {
+@@ -3154,25 +3171,31 @@ wl_proc_read(struct seq_file *m, void *data)
+ 	}
+ #endif
+ 	WL_LOCK(wl);
+-	bcmerror = wlc_ioctl(wl->wlc, WLC_GET_MONITOR, &to_user, sizeof(int), NULL);
++	wlc_ioctl(wl->wlc, WLC_GET_MONITOR, &to_user, sizeof(int), NULL);
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
+ 	len = sprintf(buffer, "%d\n", to_user);
+ #else
+-	len = seq_printf(m, "%d\n", to_user);
++	seq_printf(m, "%d\n", to_user);
+ #endif
+ 	WL_UNLOCK(wl);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
+ 	return len;
++#else
++	return 0;
++#endif
+ }
+ 
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
+ static int
+ wl_proc_write(struct file *filp, const char __user *buff, unsigned long length, void *data)
++{
++	wl_info_t * wl = (wl_info_t *)data;
+ #else
+ static ssize_t
+-wl_proc_write(struct file *filp, const char __user *buff, size_t length, loff_t *data)
+-#endif
++wl_proc_write(struct file *file, const char *buffer, size_t count, loff_t *pos)
+ {
+-	wl_info_t * wl = (wl_info_t *)data;
++	wl_info_t * wl = (wl_info_t *)pos;
++#endif
+ 	int from_user = 0;
+ 	int bcmerror;
+ 
+@@ -3197,18 +3220,24 @@ wl_proc_write(struct file *filp, const char __user *buff, size_t length, loff_t
+ 		WL_ERROR(("%s: SET_MONITOR failed with %d\n", __FUNCTION__, bcmerror));
+ 		return -EIO;
+ 	}
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
+ 	return length;
++#else
++	return count;
++#endif
+ }
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+-static int wl_proc_open(struct inode *inode, struct file *file){
+-    return single_open(file, wl_proc_read, NULL);
++static int wl_proc_read_open(struct inode *inode, struct file *file){
++    return single_open(file, wl_proc_read, PDE_DATA(inode));
+ }
+ 
+-static const struct file_operations fops = {
+-		.read = wl_proc_open,
+-		.llseek = seq_lseek,
++static const struct file_operations bcmwl_fops = {
++		.owner = THIS_MODULE,
++		.open = wl_proc_read_open,
+ 		.write = wl_proc_write,
++		.llseek = seq_lseek,
++		.release = single_release,
+ };
+ #endif
+ 
+@@ -3220,7 +3249,7 @@ wl_reg_proc_entry(wl_info_t *wl)
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
+ 	if ((wl->proc_entry = create_proc_entry(tmp, 0644, NULL)) == NULL) {
+ #else
+-	if ((wl->proc_entry = proc_create_data(tmp, 0644, NULL, &fops, wl)) == NULL) {
++	if ((wl->proc_entry = proc_create_data(tmp, 0644, NULL, &bcmwl_fops, wl)) == NULL) {
+ #endif
+ 		WL_ERROR(("%s: create_proc_entry %s failed\n", __FUNCTION__, tmp));
+ 		ASSERT(0);
