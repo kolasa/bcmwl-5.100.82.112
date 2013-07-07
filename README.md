@@ -1,7 +1,7 @@
 bcmwl-5.100.82.112
 ============
 
-deb repository: bcmwl-kernel-source_5.100.82.112+bdcom-0ubuntu3_i386.deb
+deb repository: bcmwl-kernel-source_5.100.82.112+bdcom-0ubuntu3_[i386 or amd64].deb
 
 My driver patch for the Linux kernel >= 3.9.x ( and the next 3.10-rcx )
 
