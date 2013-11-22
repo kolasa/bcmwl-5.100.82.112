@@ -15,3 +15,12 @@ Why Driver 6.20 is not good for the card BCM4313 ?
 
 Since the card interfere with my wifi network ( perhaps some other wifi network ) to work properly
 but other connected devices work poorly or not at all.
+
+bcmwl-6.30.223.141
+============
+
+Driver 6.30 and all devices connected to wifi working OK  :)
+
+https://github.com/kolasa/bcmwl-6.30.223.141
+
+Only one small patch eliminate one warning in 6.30.
