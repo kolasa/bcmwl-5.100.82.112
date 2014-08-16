@@ -1,0 +1,16 @@
+diff --git a/src/wl/sys/wl_linux.c b/src/wl/sys/wl_linux.c
+index ac87754..a5f1919 100644
+--- a/src/wl/sys/wl_linux.c
++++ b/src/wl/sys/wl_linux.c
+@@ -1190,7 +1190,11 @@ wl_alloc_if(wl_info_t *wl, int iftype, uint subunit, struct wlc_if* wlcif)
+ #else
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
+ 
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0))
+ 	dev = alloc_netdev(sizeof(wl_if_t), name, ether_setup);
++#else
++	dev = alloc_netdev(sizeof(wl_if_t), name, NET_NAME_UNKNOWN, ether_setup);
++#endif
+ 	wlif = netdev_priv(dev);
+ 	if (!dev) {
+ #else
